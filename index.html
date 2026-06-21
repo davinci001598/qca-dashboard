@@ -6,22 +6,38 @@
 <title>Bagua 8→64</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#000;overflow:hidden;cursor:grab}
-body:active{cursor:grabbing}
+body{background:#000;overflow:hidden;font-family:'Segoe UI','Microsoft YaHei',sans-serif}
+#panel{position:fixed;top:20px;left:20px;z-index:20;background:rgba(0,0,0,0.7);
+  border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;
+  min-width:160px;pointer-events:auto}
+#panel .title{color:#779988;font-size:11px;letter-spacing:3px;margin-bottom:10px}
+#panel .gua-list{display:flex;flex-wrap:wrap;gap:6px}
+#panel .gua-btn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:#ccc;transition:all .2s;background:rgba(255,255,255,0.03)}
+#panel .gua-btn:hover{border-color:rgba(255,255,255,0.5);transform:scale(1.15)}
+#panel .gua-btn.active{box-shadow:0 0 16px currentColor;border-color:currentColor}
+#panel .info{margin-top:12px;color:#779988;font-size:10px;display:none}
+#panel .info.show{display:block}
+#panel .info .selected{font-size:18px;font-weight:700;margin-bottom:4px}
+#panel .info .links{color:#557766;font-size:10px}
+#panel .reset{color:#667766;font-size:10px;margin-top:8px;cursor:pointer;text-decoration:underline}
+
 #tooltip{position:fixed;pointer-events:none;z-index:99;color:#fff;font-size:14px;
   background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .12s;
   border:1px solid rgba(255,255,255,0.2);letter-spacing:1px;display:none}
-#tooltip .gua{font-size:22px;font-weight:700}
-#tooltip .detail{color:#aabbcc;font-size:11px;display:block;margin-top:4px}
-#overlay{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
-#title{position:absolute;top:20px;left:24px;color:#88ddaa;font-size:14px;letter-spacing:5px}
-#title .sub{color:#558866;font-size:10px;display:block;margin-top:4px;letter-spacing:1px}
-#hint{position:absolute;bottom:24px;right:24px;color:#558866;font-size:10px}
+#tooltip .gua{font-size:20px;font-weight:700}
+#tooltip .detail{color:#8899aa;font-size:10px;display:block;margin-top:3px}
 </style>
 </head>
 <body>
-<div id="overlay"><div id="title">8 BAGUA → 64<span class="sub">generative · 352 edges · hover for gua</span></div><div id="hint">drag · scroll · right-drag</div></div>
 <div id="tooltip"><span class="gua"></span><span class="detail"></span></div>
+<div id="panel">
+  <div class="title">BAGUA</div>
+  <div class="gua-list" id="guaList"></div>
+  <div class="info" id="infoPanel"><span class="selected"></span><span class="links"></span></div>
+  <div class="reset" id="resetBtn">▸ 显示全部</div>
+</div>
 
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.157.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.157.0/examples/jsm/"}}
@@ -29,9 +45,6 @@ body:active{cursor:grabbing}
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
-import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
-import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const nodes = [{"id": "乾", "type": "base", "x": 0.0, "y": 6, "z": -10.0, "color": "#ff4444", "size": 3.0, "label": "乾"}, {"id": "坤", "type": "base", "x": 7.07, "y": 6, "z": -7.07, "color": "#4444ff", "size": 3.0, "label": "坤"}, {"id": "震", "type": "base", "x": 10.0, "y": 6, "z": 0.0, "color": "#66cc44", "size": 3.0, "label": "震"}, {"id": "巽", "type": "base", "x": 7.07, "y": 6, "z": 7.07, "color": "#44cc88", "size": 3.0, "label": "巽"}, {"id": "坎", "type": "base", "x": 0.0, "y": 6, "z": 10.0, "color": "#4488cc", "size": 3.0, "label": "坎"}, {"id": "离", "type": "base", "x": -7.07, "y": 6, "z": 7.07, "color": "#dd4422", "size": 3.0, "label": "离"}, {"id": "艮", "type": "base", "x": -10.0, "y": 6, "z": 0.0, "color": "#aa8866", "size": 3.0, "label": "艮"}, {"id": "兑", "type": "base", "x": -7.07, "y": 6, "z": -7.07, "color": "#ddaa44", "size": 3.0, "label": "兑"}, {"id": "乾", "type": "composite", "upper": "乾", "lower": "乾", "x": -1.78, "y": -3.44, "z": -5.92, "color_u": "#ff4444", "color_l": "#ff4444", "color": "#ff4444", "size": 1.0, "label": "乾"}, {"id": "坤", "type": "composite", "upper": "坤", "lower": "坤", "x": 3.53, "y": -1.2, "z": -5.8, "color_u": "#4444ff", "color_l": "#4444ff", "color": "#4444ff", "size": 1.0, "label": "坤"}, {"id": "屯", "type": "composite", "upper": "坎", "lower": "震", "x": 1.54, "y": -1.45, "z": 8.03, "color_u": "#4488cc", "color_l": "#66cc44", "color": "#4f9f9c", "size": 1.0, "label": "屯"}, {"id": "蒙", "type": "composite", "upper": "艮", "lower": "坎", "x": -11.57, "y": -0.09, "z": -0.58, "color_u": "#aa8866", "color_l": "#4488cc", "color": "#868889", "size": 1.0, "label": "蒙"}, {"id": "需", "type": "composite", "upper": "坎", "lower": "乾", "x": 1.66, "y": -2.36, "z": 6.04, "color_u": "#4488cc", "color_l": "#ff4444", "color": "#85709c", "size": 1.0, "label": "需"}, {"id": "讼", "type": "composite", "upper": "乾", "lower": "坎", "x": 0.39, "y": 1.44, "z": -11.03, "color_u": "#ff4444", "color_l": "#4488cc", "color": "#bd5b73", "size": 1.0, "label": "讼"}, {"id": "师", "type": "composite", "upper": "坤", "lower": "坎", "x": 8.83, "y": -0.34, "z": -7.12, "color_u": "#4444ff", "color_l": "#4488cc", "color": "#445bed", "size": 1.0, "label": "师"}, {"id": "比", "type": "composite", "upper": "坎", "lower": "坤", "x": 2.0, "y": -1.79, "z": 7.56, "color_u": "#4488cc", "color_l": "#4444ff", "color": "#4470dd", "size": 1.0, "label": "比"}, {"id": "小畜", "type": "composite", "upper": "巽", "lower": "乾", "x": 4.88, "y": -2.35, "z": 2.07, "color_u": "#44cc88", "color_l": "#ff4444", "color": "#859c70", "size": 1.0, "label": "小畜"}, {"id": "履", "type": "composite", "upper": "乾", "lower": "兑", "x": 5.61, "y": 3.7, "z": -13.61, "color_u": "#ff4444", "color_l": "#ddaa44", "color": "#f36744", "size": 1.0, "label": "履"}, {"id": "泰", "type": "composite", "upper": "坤", "lower": "乾", "x": 2.63, "y": -4.11, "z": -5.72, "color_u": "#4444ff", "color_l": "#ff4444", "color": "#8544bd", "size": 1.0, "label": "泰"}, {"id": "否", "type": "composite", "upper": "乾", "lower": "坤", "x": -1.63, "y": -1.39, "z": -7.27, "color_u": "#ff4444", "color_l": "#4444ff", "color": "#bd4485", "size": 1.0, "label": "否"}, {"id": "同人", "type": "composite", "upper": "乾", "lower": "离", "x": 1.33, "y": 1.93, "z": -11.93, "color_u": "#ff4444", "color_l": "#dd4422", "color": "#f34438", "size": 1.0, "label": "同人"}, {"id": "大有", "type": "composite", "upper": "离", "lower": "乾", "x": -2.37, "y": -2.74, "z": 5.52, "color_u": "#dd4422", "color_l": "#ff4444", "color": "#e8442d", "size": 1.0, "label": "大有"}, {"id": "谦", "type": "composite", "upper": "坤", "lower": "艮", "x": 12.06, "y": 2.27, "z": -6.92, "color_u": "#4444ff", "color_l": "#aa8866", "color": "#675bc9", "size": 1.0, "label": "谦"}, {"id": "豫", "type": "composite", "upper": "震", "lower": "坤", "x": 7.0, "y": -2.62, "z": -2.06, "color_u": "#66cc44", "color_l": "#4444ff", "color": "#5a9c85", "size": 1.0, "label": "豫"}, {"id": "随", "type": "composite", "upper": "兑", "lower": "震", "x": -7.33, "y": -2.29, "z": -5.1, "color_u": "#ddaa44", "color_l": "#66cc44", "color": "#b3b544", "size": 1.0, "label": "随"}, {"id": "蛊", "type": "composite", "upper": "艮", "lower": "巽", "x": -10.38, "y": -0.8, "z": 0.4, "color_u": "#aa8866", "color_l": "#44cc88", "color": "#869f71", "size": 1.0, "label": "蛊"}, {"id": "临", "type": "composite", "upper": "坤", "lower": "兑", "x": 13.99, "y": 3.99, "z": -6.12, "color_u": "#4444ff", "color_l": "#ddaa44", "color": "#7967bd", "size": 1.0, "label": "临"}, {"id": "观", "type": "composite", "upper": "巽", "lower": "坤", "x": 5.77, "y": -1.06, "z": 3.88, "color_u": "#44cc88", "color_l": "#4444ff", "color": "#449cb1", "size": 1.0, "label": "观"}, {"id": "噬嗑", "type": "composite", "upper": "离", "lower": "震", "x": -5.48, "y": -0.36, "z": 6.81, "color_u": "#dd4422", "color_l": "#66cc44", "color": "#b3732d", "size": 1.0, "label": "噬嗑"}, {"id": "贲", "type": "composite", "upper": "艮", "lower": "离", "x": -12.09, "y": 0.85, "z": -1.83, "color_u": "#aa8866", "color_l": "#dd4422", "color": "#bb704e", "size": 1.0, "label": "贲"}, {"id": "剥", "type": "composite", "upper": "艮", "lower": "坤", "x": -7.47, "y": -2.87, "z": 2.12, "color_u": "#aa8866", "color_l": "#4444ff", "color": "#86709b", "size": 1.0, "label": "剥"}, {"id": "复", "type": "composite", "upper": "坤", "lower": "震", "x": 5.32, "y": -1.38, "z": -6.49, "color_u": "#4444ff", "color_l": "#66cc44", "color": "#4f73bd", "size": 1.0, "label": "复"}, {"id": "无妄", "type": "composite", "upper": "乾", "lower": "震", "x": -1.59, "y": -0.07, "z": -7.99, "color_u": "#ff4444", "color_l": "#66cc44", "color": "#c97344", "size": 1.0, "label": "无妄"}, {"id": "大畜", "type": "composite", "upper": "艮", "lower": "乾", "x": -6.19, "y": -2.11, "z": 2.19, "color_u": "#aa8866", "color_l": "#ff4444", "color": "#c7705a", "size": 1.0, "label": "大畜"}, {"id": "颐", "type": "composite", "upper": "艮", "lower": "震", "x": -8.16, "y": -0.62, "z": 0.93, "color_u": "#aa8866", "color_l": "#66cc44", "color": "#929f5a", "size": 1.0, "label": "颐"}, {"id": "大过", "type": "composite", "upper": "兑", "lower": "巽", "x": -6.85, "y": -0.16, "z": -6.24, "color_u": "#ddaa44", "color_l": "#44cc88", "color": "#a7b55b", "size": 1.0, "label": "大过"}, {"id": "坎", "type": "composite", "upper": "坎", "lower": "坎", "x": 0.0, "y": 0.02, "z": 11.1, "color_u": "#4488cc", "color_l": "#4488cc", "color": "#4488cc", "size": 1.0, "label": "坎"}, {"id": "离", "type": "composite", "upper": "离", "lower": "离", "x": -9.64, "y": 1.19, "z": 7.23, "color_u": "#dd4422", "color_l": "#dd4422", "color": "#dd4422", "size": 1.0, "label": "离"}, {"id": "咸", "type": "composite", "upper": "兑", "lower": "艮", "x": -7.46, "y": 2.46, "z": -11.68, "color_u": "#ddaa44", "color_l": "#aa8866", "color": "#cb9e4f", "size": 1.0, "label": "咸"}, {"id": "恒", "type": "composite", "upper": "震", "lower": "巽", "x": 9.44, "y": -0.37, "z": -0.98, "color_u": "#66cc44", "color_l": "#44cc88", "color": "#5acc5b", "size": 1.0, "label": "恒"}, {"id": "遯", "type": "composite", "upper": "乾", "lower": "艮", "x": 3.92, "y": 3.09, "z": -13.86, "color_u": "#ff4444", "color_l": "#aa8866", "color": "#e15b4f", "size": 1.0, "label": "遯"}, {"id": "大壮", "type": "composite", "upper": "震", "lower": "乾", "x": 5.45, "y": -4.02, "z": -2.61, "color_u": "#66cc44", "color_l": "#ff4444", "color": "#9b9c44", "size": 1.0, "label": "大壮"}, {"id": "晋", "type": "composite", "upper": "离", "lower": "坤", "x": -3.55, "y": -2.68, "z": 6.09, "color_u": "#dd4422", "color_l": "#4444ff", "color": "#a7446f", "size": 1.0, "label": "晋"}, {"id": "明夷", "type": "composite", "upper": "坤", "lower": "离", "x": 10.12, "y": 0.05, "z": -7.49, "color_u": "#4444ff", "color_l": "#dd4422", "color": "#7944b1", "size": 1.0, "label": "明夷"}, {"id": "家人", "type": "composite", "upper": "巽", "lower": "离", "x": 7.68, "y": 1.63, "z": 9.46, "color_u": "#44cc88", "color_l": "#dd4422", "color": "#799c64", "size": 1.0, "label": "家人"}, {"id": "睽", "type": "composite", "upper": "离", "lower": "兑", "x": -13.79, "y": 3.9, "z": 5.77, "color_u": "#dd4422", "color_l": "#ddaa44", "color": "#dd672d", "size": 1.0, "label": "睽"}, {"id": "蹇", "type": "composite", "upper": "坎", "lower": "艮", "x": -3.12, "y": 2.5, "z": 13.45, "color_u": "#4488cc", "color_l": "#aa8866", "color": "#6788a8", "size": 1.0, "label": "蹇"}, {"id": "解", "type": "composite", "upper": "震", "lower": "坎", "x": 11.13, "y": -0.09, "z": 0.56, "color_u": "#66cc44", "color_l": "#4488cc", "color": "#5ab473", "size": 1.0, "label": "解"}, {"id": "损", "type": "composite", "upper": "艮", "lower": "兑", "x": -13.53, "y": 3.25, "z": -5.43, "color_u": "#aa8866", "color_l": "#ddaa44", "color": "#bb935a", "size": 1.0, "label": "损"}, {"id": "益", "type": "composite", "upper": "巽", "lower": "震", "x": 6.76, "y": -1.87, "z": 5.51, "color_u": "#44cc88", "color_l": "#66cc44", "color": "#4fcc70", "size": 1.0, "label": "益"}, {"id": "夬", "type": "composite", "upper": "兑", "lower": "乾", "x": -5.89, "y": -3.57, "z": -2.32, "color_u": "#ddaa44", "color_l": "#ff4444", "color": "#e88644", "size": 1.0, "label": "夬"}, {"id": "姤", "type": "composite", "upper": "乾", "lower": "巽", "x": -0.83, "y": -1.12, "z": -9.53, "color_u": "#ff4444", "color_l": "#44cc88", "color": "#bd735b", "size": 1.0, "label": "姤"}, {"id": "萃", "type": "composite", "upper": "兑", "lower": "坤", "x": -6.13, "y": -1.52, "z": -3.54, "color_u": "#ddaa44", "color_l": "#4444ff", "color": "#a78685", "size": 1.0, "label": "萃"}, {"id": "升", "type": "composite", "upper": "坤", "lower": "巽", "x": 7.07, "y": 0.28, "z": -7.27, "color_u": "#4444ff", "color_l": "#44cc88", "color": "#4473d5", "size": 1.0, "label": "升"}, {"id": "困", "type": "composite", "upper": "兑", "lower": "坎", "x": -6.91, "y": 1.31, "z": -8.28, "color_u": "#ddaa44", "color_l": "#4488cc", "color": "#a79e73", "size": 1.0, "label": "困"}, {"id": "井", "type": "composite", "upper": "坎", "lower": "巽", "x": -0.06, "y": -0.19, "z": 10.39, "color_u": "#4488cc", "color_l": "#44cc88", "color": "#449fb4", "size": 1.0, "label": "井"}, {"id": "革", "type": "composite", "upper": "兑", "lower": "离", "x": -7.79, "y": 0.74, "z": -9.97, "color_u": "#ddaa44", "color_l": "#dd4422", "color": "#dd8638", "size": 1.0, "label": "革"}, {"id": "鼎", "type": "composite", "upper": "离", "lower": "巽", "x": -6.69, "y": -0.81, "z": 7.3, "color_u": "#dd4422", "color_l": "#44cc88", "color": "#a77345", "size": 1.0, "label": "鼎"}, {"id": "震", "type": "composite", "upper": "震", "lower": "震", "x": 8.09, "y": -0.27, "z": -1.57, "color_u": "#66cc44", "color_l": "#66cc44", "color": "#66cc44", "size": 1.0, "label": "震"}, {"id": "艮", "type": "composite", "upper": "艮", "lower": "艮", "x": -13.14, "y": 3.36, "z": -3.49, "color_u": "#aa8866", "color_l": "#aa8866", "color": "#aa8866", "size": 1.0, "label": "艮"}, {"id": "渐", "type": "composite", "upper": "巽", "lower": "艮", "x": 7.06, "y": 2.07, "z": 11.75, "color_u": "#44cc88", "color_l": "#aa8866", "color": "#67b47c", "size": 1.0, "label": "渐"}, {"id": "归妹", "type": "composite", "upper": "震", "lower": "兑", "x": 13.87, "y": 4.19, "z": 4.99, "color_u": "#66cc44", "color_l": "#ddaa44", "color": "#8fc044", "size": 1.0, "label": "归妹"}, {"id": "丰", "type": "composite", "upper": "震", "lower": "离", "x": 12.38, "y": 1.66, "z": 1.86, "color_u": "#66cc44", "color_l": "#dd4422", "color": "#8f9c38", "size": 1.0, "label": "丰"}, {"id": "旅", "type": "composite", "upper": "离", "lower": "艮", "x": -11.27, "y": 2.4, "z": 7.01, "color_u": "#dd4422", "color_l": "#aa8866", "color": "#cb5b39", "size": 1.0, "label": "旅"}, {"id": "巽", "type": "composite", "upper": "巽", "lower": "巽", "x": 7.24, "y": -0.12, "z": 6.45, "color_u": "#44cc88", "color_l": "#44cc88", "color": "#44cc88", "size": 1.0, "label": "巽"}, {"id": "兑", "type": "composite", "upper": "兑", "lower": "兑", "x": -6.54, "y": 3.1, "z": -13.11, "color_u": "#ddaa44", "color_l": "#ddaa44", "color": "#ddaa44", "size": 1.0, "label": "兑"}, {"id": "涣", "type": "composite", "upper": "巽", "lower": "坎", "x": 6.88, "y": 1.04, "z": 8.27, "color_u": "#44cc88", "color_l": "#4488cc", "color": "#44b49f", "size": 1.0, "label": "涣"}, {"id": "节", "type": "composite", "upper": "坎", "lower": "兑", "x": -4.89, "y": 3.82, "z": 14.0, "color_u": "#4488cc", "color_l": "#ddaa44", "color": "#79939c", "size": 1.0, "label": "节"}, {"id": "中孚", "type": "composite", "upper": "巽", "lower": "兑", "x": 5.96, "y": 3.0, "z": 13.81, "color_u": "#44cc88", "color_l": "#ddaa44", "color": "#79c070", "size": 1.0, "label": "中孚"}, {"id": "小过", "type": "composite", "upper": "震", "lower": "艮", "x": 13.54, "y": 2.08, "z": 3.14, "color_u": "#66cc44", "color_l": "#aa8866", "color": "#7db44f", "size": 1.0, "label": "小过"}, {"id": "既济", "type": "composite", "upper": "坎", "lower": "离", "x": -1.87, "y": 2.05, "z": 11.69, "color_u": "#4488cc", "color_l": "#dd4422", "color": "#797090", "size": 1.0, "label": "既济"}, {"id": "未济", "type": "composite", "upper": "离", "lower": "坎", "x": -8.18, "y": 0.99, "z": 7.45, "color_u": "#dd4422", "color_l": "#4488cc", "color": "#a75b5d", "size": 1.0, "label": "未济"}];
 const edges = [{"from": 0, "to": 8, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 8, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 9, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 9, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 10, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 10, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 11, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 11, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 12, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 12, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 13, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 13, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 14, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 14, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 15, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 15, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 16, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 16, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 17, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 17, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 18, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 18, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 19, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 19, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 20, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 20, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 21, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 21, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 22, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 22, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 23, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 23, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 24, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 24, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 25, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 25, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 26, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 26, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 27, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 27, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 28, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 28, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 29, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 29, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 30, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 30, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 31, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 31, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 32, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 32, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 33, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 33, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 34, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 34, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 35, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 35, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 36, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 36, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 37, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 37, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 38, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 38, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 39, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 39, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 40, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 40, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 41, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 41, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 42, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 42, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 43, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 43, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 44, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 44, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 45, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 45, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 46, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 46, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 47, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 47, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 48, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 48, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 49, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 49, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 50, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 0, "to": 50, "color": "#ff4444", "strength": 0.5, "type": "lower"}, {"from": 0, "to": 51, "color": "#ff4444", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 51, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 52, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 1, "to": 52, "color": "#4444ff", "strength": 0.5, "type": "lower"}, {"from": 1, "to": 53, "color": "#4444ff", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 53, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 54, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 54, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 55, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 55, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 56, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 56, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 57, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 57, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 58, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 2, "to": 58, "color": "#66cc44", "strength": 0.5, "type": "lower"}, {"from": 6, "to": 59, "color": "#aa8866", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 59, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 60, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 60, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 61, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 61, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 62, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 62, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 63, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 63, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 64, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 3, "to": 64, "color": "#44cc88", "strength": 0.5, "type": "lower"}, {"from": 7, "to": 65, "color": "#ddaa44", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 65, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 66, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 66, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 67, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 67, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 3, "to": 68, "color": "#44cc88", "strength": 0.9, "type": "upper"}, {"from": 7, "to": 68, "color": "#ddaa44", "strength": 0.5, "type": "lower"}, {"from": 2, "to": 69, "color": "#66cc44", "strength": 0.9, "type": "upper"}, {"from": 6, "to": 69, "color": "#aa8866", "strength": 0.5, "type": "lower"}, {"from": 4, "to": 70, "color": "#4488cc", "strength": 0.9, "type": "upper"}, {"from": 5, "to": 70, "color": "#dd4422", "strength": 0.5, "type": "lower"}, {"from": 5, "to": 71, "color": "#dd4422", "strength": 0.9, "type": "upper"}, {"from": 4, "to": 71, "color": "#4488cc", "strength": 0.5, "type": "lower"}, {"from": 8, "to": 13, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 8, "to": 17, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 8, "to": 19, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 8, "to": 20, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 8, "to": 32, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 8, "to": 40, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 8, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 14, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 18, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 22, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 26, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 31, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 43, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 9, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 12, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 15, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 36, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 46, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 55, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 67, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 10, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 25, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 29, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 30, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 33, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 34, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 48, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 11, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 12, "to": 15, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 12, "to": 36, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 12, "to": 46, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 12, "to": 55, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 12, "to": 67, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 12, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 13, "to": 17, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 13, "to": 19, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 13, "to": 20, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 13, "to": 32, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 13, "to": 40, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 13, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 14, "to": 18, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 14, "to": 22, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 14, "to": 26, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 14, "to": 31, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 14, "to": 43, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 14, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 15, "to": 36, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 15, "to": 46, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 15, "to": 55, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 15, "to": 67, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 15, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 27, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 44, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 49, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 60, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 64, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 66, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 16, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 17, "to": 19, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 17, "to": 20, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 17, "to": 32, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 17, "to": 40, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 17, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 18, "to": 22, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 18, "to": 26, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 18, "to": 31, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 18, "to": 43, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 18, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 19, "to": 20, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 19, "to": 32, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 19, "to": 40, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 19, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 20, "to": 32, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 20, "to": 40, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 20, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 28, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 37, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 42, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 45, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 57, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 63, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 21, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 22, "to": 26, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 22, "to": 31, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 22, "to": 43, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 22, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 39, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 41, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 47, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 58, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 61, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 62, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 23, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 35, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 38, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 50, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 52, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 54, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 56, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 24, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 25, "to": 29, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 25, "to": 30, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 25, "to": 33, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 25, "to": 34, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 25, "to": 48, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 25, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 26, "to": 31, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 26, "to": 43, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 26, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 27, "to": 44, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 27, "to": 49, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 27, "to": 60, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 27, "to": 64, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 27, "to": 66, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 27, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 28, "to": 37, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 28, "to": 42, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 28, "to": 45, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 28, "to": 57, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 28, "to": 63, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 28, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 29, "to": 30, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 29, "to": 33, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 29, "to": 34, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 29, "to": 48, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 29, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 30, "to": 33, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 30, "to": 34, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 30, "to": 48, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 30, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 31, "to": 43, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 31, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 32, "to": 40, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 32, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 33, "to": 34, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 33, "to": 48, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 33, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 34, "to": 48, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 34, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 35, "to": 38, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 35, "to": 50, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 35, "to": 52, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 35, "to": 54, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 35, "to": 56, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 35, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 36, "to": 46, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 36, "to": 55, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 36, "to": 67, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 36, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 37, "to": 42, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 37, "to": 45, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 37, "to": 57, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 37, "to": 63, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 37, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 38, "to": 50, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 38, "to": 52, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 38, "to": 54, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 38, "to": 56, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 38, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 39, "to": 41, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 39, "to": 47, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 39, "to": 58, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 39, "to": 61, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 39, "to": 62, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 39, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 40, "to": 51, "color": "#ff4444", "strength": 0.08, "type": "same_upper"}, {"from": 41, "to": 47, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 41, "to": 58, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 41, "to": 61, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 41, "to": 62, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 41, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 42, "to": 45, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 42, "to": 57, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 42, "to": 63, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 42, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 43, "to": 53, "color": "#4444ff", "strength": 0.08, "type": "same_upper"}, {"from": 44, "to": 49, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 44, "to": 60, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 44, "to": 64, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 44, "to": 66, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 44, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 45, "to": 57, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 45, "to": 63, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 45, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 46, "to": 55, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 46, "to": 67, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 46, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 47, "to": 58, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 47, "to": 61, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 47, "to": 62, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 47, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 48, "to": 59, "color": "#aa8866", "strength": 0.08, "type": "same_upper"}, {"from": 49, "to": 60, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 49, "to": 64, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 49, "to": 66, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 49, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 50, "to": 52, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 50, "to": 54, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 50, "to": 56, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 50, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 52, "to": 54, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 52, "to": 56, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 52, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 54, "to": 56, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 54, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 55, "to": 67, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 55, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}, {"from": 56, "to": 65, "color": "#ddaa44", "strength": 0.08, "type": "same_upper"}, {"from": 57, "to": 63, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 57, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 58, "to": 61, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 58, "to": 62, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 58, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 60, "to": 64, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 60, "to": 66, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 60, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 61, "to": 62, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 61, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 62, "to": 69, "color": "#66cc44", "strength": 0.08, "type": "same_upper"}, {"from": 63, "to": 71, "color": "#dd4422", "strength": 0.08, "type": "same_upper"}, {"from": 64, "to": 66, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 64, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 66, "to": 68, "color": "#44cc88", "strength": 0.08, "type": "same_upper"}, {"from": 67, "to": 70, "color": "#4488cc", "strength": 0.08, "type": "same_upper"}];
@@ -46,12 +59,8 @@ const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.6;
+renderer.toneMappingExposure = 1.05;
 document.body.appendChild(renderer.domElement);
-
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene,camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 1.2, 0.35, 0.02));
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
@@ -59,19 +68,19 @@ controls.minDistance = 5; controls.maxDistance = 60;
 controls.autoRotate = true; controls.autoRotateSpeed = 0.22;
 controls.target.set(0,0,0); controls.update();
 
-// Stars (brighter)
+// Stars
 const sg = new THREE.BufferGeometry();
-const sc = 7000;
+const sc = 5000;
 const sp = new Float32Array(sc*3), sl = new Float32Array(sc*3);
 for(let i=0;i<sc;i++){
-  const r=18+Math.random()*75, th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1);
+  const r=20+Math.random()*70, th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1);
   sp[i*3]=r*Math.sin(ph)*Math.cos(th); sp[i*3+1]=r*Math.sin(ph)*Math.sin(th); sp[i*3+2]=r*Math.cos(ph);
-  const c=new THREE.Color().setHSL(Math.random()*0.22+0.52, 0.3, 0.5+Math.random()*0.5);
+  const c=new THREE.Color().setHSL(Math.random()*0.2+0.52, 0.2, 0.35+Math.random()*0.4);
   sl[i*3]=c.r; sl[i*3+1]=c.g; sl[i*3+2]=c.b;
 }
 sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
 sg.setAttribute('color',new THREE.BufferAttribute(sl,3));
-scene.add(new THREE.Points(sg,new THREE.PointsMaterial({size:0.08,vertexColors:true,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.85})));
+scene.add(new THREE.Points(sg,new THREE.PointsMaterial({size:0.06,vertexColors:true,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.7})));
 
 // Glow tex
 function glowTex(){
@@ -79,36 +88,39 @@ function glowTex(){
   const ctx=c.getContext('2d');
   const g=ctx.createRadialGradient(64,64,0,64,64,64);
   g.addColorStop(0,'rgba(255,255,255,1)');
-  g.addColorStop(0.05,'rgba(255,255,255,0.98)');
-  g.addColorStop(0.15,'rgba(255,255,255,0.7)');
-  g.addColorStop(0.35,'rgba(255,255,255,0.2)');
-  g.addColorStop(0.7,'rgba(255,255,255,0.02)');
+  g.addColorStop(0.06,'rgba(255,255,255,0.9)');
+  g.addColorStop(0.2,'rgba(255,255,255,0.4)');
+  g.addColorStop(0.5,'rgba(255,255,255,0.05)');
   g.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=g;ctx.fillRect(0,0,128,128);
   return new THREE.CanvasTexture(c);
 }
 const tex = glowTex();
 
-// Nodes
+// Build nodes
 const nodeMeshes=[];
+const nodeSprites=[];  // 存储sprite引用用于更新opacity
+const nodeCores=[];
 nodes.forEach((n,i)=>{
   const isB = n.type==='base';
-  const s = isB ? n.size*3.0 : n.size*2.0;
-  const mat = new THREE.SpriteMaterial({map:tex,color:n.color,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:1.0});
+  const s = isB ? n.size*2.2 : n.size*1.4;
+  const mat = new THREE.SpriteMaterial({map:tex,color:n.color,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.7});
   const sprite = new THREE.Sprite(mat);
   sprite.position.set(n.x*S, n.y*S, n.z*S);
   sprite.scale.set(s,s,1);
-  sprite.userData = n;
+  sprite.userData = { ...n, index: i };
   sprite.renderOrder = isB?3:1;
   scene.add(sprite);
-  const core = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:'#ffffff',blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:1.0}));
-  core.scale.set(s*0.22,s*0.22,1);
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:'#ffffff',blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0.8}));
+  core.scale.set(s*0.18,s*0.18,1);
   core.renderOrder=isB?4:2;
   sprite.add(core);
   nodeMeshes.push(sprite);
+  nodeSprites.push({sprite,mat,core});
 });
 
-// Edges (MUCH brighter)
+// Edges
+const edgeLines=[];
 edges.forEach(e=>{
   const a=nodeMeshes[e.from], b=nodeMeshes[e.to];
   if(!a||!b)return;
@@ -116,21 +128,111 @@ edges.forEach(e=>{
   const mid=new THREE.Vector3().addVectors(p0,p1).multiplyScalar(0.5);
   mid.y += p0.distanceTo(p1)*0.1;
   const curve=new THREE.QuadraticBezierCurve3(p0,mid,p1);
-  const pts=curve.getPoints(24);
-  const geom=new THREE.BufferGeometry().setFromPoints(pts);
-  // base->composite edges: much brighter
-  const isBaseEdge = e.type==='upper'||e.type==='lower';
-  const opacity = isBaseEdge ? 0.15 + e.strength*0.5 : 0.04;
-  scene.add(new THREE.Line(geom,new THREE.LineBasicMaterial({
-    color:e.color,transparent:true,opacity:Math.min(0.8,opacity),
-    blending:THREE.AdditiveBlending,depthWrite:false
-  })));
+  const geom=new THREE.BufferGeometry().setFromPoints(curve.getPoints(20));
+  const mat = new THREE.LineBasicMaterial({
+    color:e.color,transparent:true,opacity:0.08,blending:THREE.AdditiveBlending,depthWrite:false
+  });
+  const line = new THREE.Line(geom,mat);
+  line.userData = e;
+  scene.add(line);
+  edgeLines.push(line);
+});
+
+// ======= INTERACTION =======
+let selectedNode = null;
+let relatedIndices = new Set();
+let relatedEdges = new Set();
+
+function getRelated(i){
+  const n = nodes[i];
+  const set = new Set([i]);
+  const edgeSet = new Set();
+  edges.forEach((e,ei)=>{
+    if(e.from===i || e.to===i){
+      set.add(e.from); set.add(e.to);
+      edgeSet.add(ei);
+    }
+  });
+  return { nodes: set, edges: edgeSet };
+}
+
+function highlight(nodeIndex){
+  const {nodes:relNodes, edges:relEdges} = getRelated(nodeIndex);
+  relatedIndices = relNodes;
+  relatedEdges = relEdges;
+  selectedNode = nodeIndex;
+  
+  // Update nodes
+  nodeSprites.forEach((ns,i)=>{
+    if(relNodes.has(i)){
+      ns.mat.opacity = 1.0;
+      ns.core.material.opacity = 1.0;
+    } else {
+      ns.mat.opacity = 0.04;
+      ns.core.material.opacity = 0.04;
+    }
+  });
+  
+  // Update edges
+  edgeLines.forEach((line,i)=>{
+    if(relEdges.has(i)){
+      line.material.opacity = 0.6;
+    } else {
+      line.material.opacity = 0.01;
+    }
+  });
+  
+  // Update panel
+  const n = nodes[nodeIndex];
+  const links = [];
+  edges.forEach((e,ei)=>{
+    if(relEdges.has(ei)){
+      const otherIdx = e.from===nodeIndex ? e.to : e.from;
+      links.push(nodes[otherIdx].id);
+    }
+  });
+  document.getElementById('infoPanel').innerHTML = 
+    `<span class="selected" style="color:${n.color}">${n.id}</span>
+     <span class="links">关联 ${links.length} 个：${links.join(' · ')}</span>`;
+  document.getElementById('infoPanel').classList.add('show');
+  
+  // Highlight panel button
+  document.querySelectorAll('.gua-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.gua-btn[data-idx="${nodeIndex}"]`)?.classList.add('active');
+}
+
+function resetAll(){
+  selectedNode = null;
+  relatedIndices = new Set();
+  relatedEdges = new Set();
+  nodeSprites.forEach(ns=>{
+    const isB = ns.sprite.userData.type==='base';
+    ns.mat.opacity = isB ? 0.85 : 0.7;
+    ns.core.material.opacity = isB ? 0.9 : 0.8;
+  });
+  edgeLines.forEach(line=>{ line.material.opacity = 0.08; });
+  document.getElementById('infoPanel').classList.remove('show');
+  document.querySelectorAll('.gua-btn').forEach(b=>b.classList.remove('active'));
+}
+
+// Click handler
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 2.0;
+const mouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener('click',(ev)=>{
+  mouse.x=(ev.clientX/innerWidth)*2-1; mouse.y=-(ev.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(nodeMeshes);
+  if(hits.length){
+    const idx = hits[0].object.userData.index;
+    highlight(idx);
+  } else {
+    resetAll();
+  }
 });
 
 // Hover
-const raycaster=new THREE.Raycaster();
-raycaster.params.Points.threshold=2.0;
-const mouse=new THREE.Vector2();
 const tip=document.getElementById('tooltip');
 renderer.domElement.addEventListener('mousemove',(ev)=>{
   mouse.x=(ev.clientX/innerWidth)*2-1; mouse.y=-(ev.clientY/innerHeight)*2+1;
@@ -140,13 +242,27 @@ renderer.domElement.addEventListener('mousemove',(ev)=>{
     const n=hits[0].object.userData;
     const d=n.type==='base'?'基础卦':`上${n.upper} · 下${n.lower}`;
     tip.innerHTML=`<span class="gua" style="color:${n.color}">${n.id}</span><span class="detail">${d}</span>`;
-    tip.style.display='block';tip.style.left=(ev.clientX+20)+'px';tip.style.top=(ev.clientY-10)+'px';tip.style.opacity='1';
+    tip.style.display='block';tip.style.left=(ev.clientX+20)+'px';tip.style.top=(ev.clientY-12)+'px';tip.style.opacity='1';
   }else{tip.style.opacity='0';setTimeout(()=>{if(tip.style.opacity==='0')tip.style.display='none';},200);}
 });
 
-function animate(){requestAnimationFrame(animate);controls.update();composer.render();}
+// Panel buttons
+const guaList = document.getElementById('guaList');
+nodes.forEach((n,i)=>{
+  if(n.type!=='base') return;
+  const btn = document.createElement('div');
+  btn.className = 'gua-btn';
+  btn.textContent = n.id;
+  btn.style.color = n.color;
+  btn.dataset.idx = i;
+  btn.addEventListener('click',(ev)=>{ev.stopPropagation();highlight(i);});
+  guaList.appendChild(btn);
+});
+document.getElementById('resetBtn').addEventListener('click',(ev)=>{ev.stopPropagation();resetAll();});
+
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}
 animate();
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 </script>
 </body>
 </html>
