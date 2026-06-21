@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>引力涌现 QCA · 实验监控面板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0f14; color:#7a8a9a; font-family:"SF Mono","Cascadia Code","Consolas",monospace; overflow-x:hidden; }
+.header { padding:20px 28px 12px; border-bottom:1px solid rgba(0,255,128,.08); }
+.header h1 { font-size:18px; color:#00ff80; font-weight:400; letter-spacing:2px; }
+.header h1 span { color:#3a5a4a; font-size:12px; margin-left:12px; }
+.header .meta { font-size:11px; color:#3a5a4a; margin-top:4px; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px 28px 28px; }
+.card { background:rgba(10,20,16,.6); border:1px solid rgba(0,255,128,.06); border-radius:6px; padding:14px; }
+.card.full { grid-column:1/-1; }
+.card h2 { font-size:11px; color:#00cc66; font-weight:400; letter-spacing:1px; margin-bottom:8px; text-transform:uppercase; }
+.chart { width:100%; height:320px; }
+
+.params { display:flex; gap:20px; padding:12px 28px; flex-wrap:wrap; }
+.param { display:flex; flex-direction:column; align-items:center; padding:0 12px; border-left:1px solid rgba(0,255,128,.08); }
+.param:first-child { border-left:none; }
+.param .val { font-size:18px; color:#00ff80; font-weight:600; }
+.param .lbl { font-size:10px; color:#3a5a4a; letter-spacing:1px; margin-top:2px; }
+
+@media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>GRAVITATIONAL EMERGENCE QCA <span>v7 &middot; L48 3D Unitary</span></h1>
+  <div class="meta">引力涌现量子细胞自动机 &middot; 实时监控面板 &middot; 48&sup3; 格点 &middot; &alpha;=2.0 &middot; &sigma;=7.0</div>
+</div>
+
+<div class="params">
+  <div class="param"><div class="val">48&sup3;</div><div class="lbl">格点规模</div></div>
+  <div class="param"><div class="val">&alpha;=2.0</div><div class="lbl">耦合常数</div></div>
+  <div class="param"><div class="val">&sigma;=7.0</div><div class="lbl">初始展宽</div></div>
+  <div class="param"><div class="val">&lambda;<sub>J</sub>=9.8</div><div class="lbl">金斯长度</div></div>
+  <div class="param"><div class="val">(16,24,24)</div><div class="lbl">初始种子1</div></div>
+</div>
+
+<div class="grid">
+  <div class="card full">
+    <h2>可观测量时序 &middot; Observables vs Steps</h2>
+    <div class="chart" id="chart-main" style="height:380px;"></div>
+  </div>
+  <div class="card">
+    <h2>簇比例 cf5(t) &middot; Cluster Fraction</h2>
+    <div class="chart" id="chart-cf5"></div>
+  </div>
+  <div class="card">
+    <h2>最大密度 mx(t) &middot; Peak Density</h2>
+    <div class="chart" id="chart-mx"></div>
+  </div>
+  <div class="card">
+    <h2>两体距离 dist(t) &middot; Pair Distance</h2>
+    <div class="chart" id="chart-dist"></div>
+  </div>
+  <div class="card">
+    <h2>径向密度剖面 &rho;(r) &middot; Radial Profile</h2>
+    <div class="chart" id="chart-radial"></div>
+  </div>
+</div>
+
+<script>
+var _LJ = 9.754000036449105;
+var _L = 48;
+var hist = [{"s": 0, "cf5": 0.6098416447639465, "mx": 0.09050500392913818, "dist": 20.771616935731558}, {"s": 200, "cf5": 0.18263624608516693, "mx": 0.01438140869140625, "dist": 22.02083396911621}, {"s": 400, "cf5": 0.3073189854621887, "mx": 0.15958628058433533, "dist": 23.148039817810215}, {"s": 600, "cf5": 0.4949021637439728, "mx": 0.7969736456871033, "dist": 22.86911392211922}, {"s": 800, "cf5": 0.4223525822162628, "mx": 0.8801703453063965, "dist": 21.243942260742188}, {"s": 1000, "cf5": 0.3530843257904053, "mx": 0.14160428941249847, "dist": 18.57414722442676}, {"s": 1199, "cf5": 0.3181414306163788, "mx": 0.6049203276634216, "dist": 14.281894683838527}];
+var rho_radial = [0.016450941562652588, 0.020253851365011472, 0.021128866094813653, 0.009631946580145578, 0.006211346859178083, 0.009401373974247779, 0.014060327655201075, 0.007378300101138633, 0.008389949521576684, 0.005705269961288293, 0.006251675176104481, 0.005693904308945231, 0.0048302138123770344, 0.005172022149323951, 0.004161880281133318, 0.0033807578545055495, 0.0034144015362048033, 0.002954818844993985, 0.0026786205302486853, 0.002640755950714387];
+
+var s = hist.map(function(h) { return h.s; });
+var cf5 = hist.map(function(h) { return h.cf5; });
+var mx = hist.map(function(h) { return h.mx; });
+var dist = hist.map(function(h) { return h.dist; });
+
+// --- Main observables ---
+var mainChart = echarts.init(document.getElementById('chart-main'));
+
+var keyFrame = -1;
+for (var i = 0; i < s.length; i++) {
+  if (dist[i] < _LJ && keyFrame < 0) keyFrame = s[i];
+}
+
+mainChart.setOption({
+  tooltip: { trigger:'axis', axisPointer:{ type:'cross' } },
+  legend: { data:['cf5 簇比例','mx 最大密度','dist 两体距离'], bottom:0, textStyle:{ color:'#5a7a6a', fontSize:11 } },
+  grid: { left:55, right:55, top:15, bottom:30 },
+  xAxis: {
+    type:'value', name:'步数 s', nameTextStyle:{ color:'#3a5a4a' },
+    axisLine:{ lineStyle:{ color:'#1a2a1a' } },
+    axisLabel:{ color:'#3a5a4a', fontSize:10 },
+    splitLine:{ show:false }
+  },
+  yAxis: [
+    {
+      type:'value', name:'cf5 / mx',
+      axisLine:{ lineStyle:{ color:'#00ff80' } },
+      axisLabel:{ color:'#3a5a4a', fontSize:10 },
+      splitLine:{ lineStyle:{ color:'rgba(0,255,128,.04)' } }
+    },
+    {
+      type:'value', name:'距离',
+      axisLine:{ lineStyle:{ color:'#ff6600' } },
+      axisLabel:{ color:'#3a5a4a', fontSize:10 },
+      splitLine:{ show:false }
+    }
+  ],
+  series: [
+    {
+      name:'cf5 簇比例', type:'line',
+      data: cf5.map(function(v,i){ return [s[i],v]; }),
+      smooth:true, symbol:'none',
+      lineStyle:{ color:'#00ff80', width:1.5 },
+      areaStyle:{ color: new echarts.graphic.LinearGradient(0,0,0,1,[
+        { offset:0, color:'rgba(0,255,128,.15)' }, { offset:1, color:'rgba(0,255,128,0)' }
+      ]) }
+    },
+    {
+      name:'mx 最大密度', type:'line', yAxisIndex:0,
+      data: mx.map(function(v,i){ return [s[i],v]; }),
+      smooth:true, symbol:'none',
+      lineStyle:{ color:'#0099ff', width:1.5 },
+      areaStyle:{ color: new echarts.graphic.LinearGradient(0,0,0,1,[
+        { offset:0, color:'rgba(0,153,255,.1)' }, { offset:1, color:'rgba(0,153,255,0)' }
+      ]) }
+    },
+    {
+      name:'dist 两体距离', type:'line', yAxisIndex:1,
+      data: dist.map(function(v,i){ return [s[i],v]; }),
+      smooth:true, symbol:'none',
+      lineStyle:{ color:'#ff6600', width:1.5 }
+    },
+    {
+      name:'金斯线', type:'line', yAxisIndex:1,
+      data:[[0,_LJ],[s[s.length-1],_LJ]],
+      symbol:'none', z:1,
+      lineStyle:{ color:'rgba(255,102,0,.3)', type:'dashed', width:1 },
+      markLine: {
+        silent:true, symbol:'none',
+        lineStyle:{ color:'rgba(255,102,0,.2)', type:'dashed' },
+        data:[{ yAxis:_LJ, label:{ formatter:'λ_J={b}', position:'end', color:'#ff6600', fontSize:10 } }]
+      }
+    }
+  ]
+});
+
+// --- solo charts ---
+function soloChart(domId, values, color) {
+  var c = echarts.init(document.getElementById(domId));
+  c.setOption({
+    tooltip:{ trigger:'axis' },
+    grid:{ left:45, right:10, top:10, bottom:20 },
+    xAxis:{ type:'value', axisLabel:{ fontSize:10, color:'#3a5a4a' }, axisLine:{ lineStyle:{ color:'#1a2a1a' } }, splitLine:{ show:false } },
+    yAxis:{ type:'value', axisLabel:{ fontSize:10, color:'#3a5a4a' }, axisLine:{ lineStyle:{ color:color } }, splitLine:{ lineStyle:{ color:'rgba(0,255,128,.03)' } } },
+    series:[{
+      type:'line',
+      data: values.map(function(v,i){ return [s[i],v]; }),
+      smooth:true, symbol:'none',
+      lineStyle:{ color:color, width:1.5 },
+      areaStyle:{ color: new echarts.graphic.LinearGradient(0,0,0,1,[{ offset:0, color:color+'33' },{ offset:1, color:color+'00' }]) }
+    }]
+  });
+}
+
+soloChart('chart-cf5', cf5, '#00ff80');
+soloChart('chart-mx', mx, '#0099ff');
+soloChart('chart-dist', dist, '#ff6600');
+
+// --- Radial profile ---
+var r = rho_radial.map(function(_, i) { return (i + 0.5) * _L/2 / rho_radial.length; });
+var radChart = echarts.init(document.getElementById('chart-radial'));
+radChart.setOption({
+  tooltip:{ trigger:'axis' },
+  grid:{ left:50, right:10, top:10, bottom:25 },
+  xAxis:{ type:'value', name:'半径 r', axisLabel:{ fontSize:10, color:'#3a5a4a' }, axisLine:{ lineStyle:{ color:'#1a2a1a' } }, splitLine:{ show:false } },
+  yAxis:{ type:'value', name:'ρ(r)', axisLabel:{ fontSize:10, color:'#3a5a4a' }, axisLine:{ lineStyle:{ color:'#e040fb' } }, splitLine:{ lineStyle:{ color:'rgba(224,64,251,.04)' } } },
+  series:[{
+    type:'bar',
+    data: rho_radial.map(function(v,i) { return [r[i], v]; }),
+    barWidth:'80%',
+    itemStyle:{
+      color: new echarts.graphic.LinearGradient(0,0,0,1,[
+        { offset:0, color:'#e040fb' }, { offset:1, color:'rgba(224,64,251,.2)' }
+      ])
+    }
+  },
+  {
+    name:'λ_J', type:'line',
+    data:[[_LJ, 0],[_LJ, Math.max.apply(null, rho_radial)*1.1]],
+    symbol:'none',
+    lineStyle:{ color:'rgba(255,102,0,.3)', type:'dashed', width:1 },
+    markLine:{
+      silent:true, symbol:'none',
+      lineStyle:{ color:'rgba(255,102,0,.2)', type:'dashed' },
+      data:[{ xAxis:_LJ, label:{ formatter:'λ_J={b}', position:'end', color:'#ff6600', fontSize:10 } }]
+    }
+  }]
+});
+
+window.addEventListener('resize', function() {
+  mainChart.resize();
+  echarts.getInstanceByDom(document.getElementById('chart-cf5')).resize();
+  echarts.getInstanceByDom(document.getElementById('chart-mx')).resize();
+  echarts.getInstanceByDom(document.getElementById('chart-dist')).resize();
+  radChart.resize();
+});
+</script>
+</body>
+</html>
